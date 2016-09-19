@@ -340,6 +340,7 @@ static void printsel(const Arg *);
 static void printscreen(const Arg *) ;
 static void toggleprinter(const Arg *);
 static void sendbreak(const Arg *);
+static void showhistory(const Arg *arg);
 
 /* Config.h for applying patches and the configuration. */
 #include "config.h"
@@ -517,6 +518,20 @@ static void (*handler[LASTEvent])(XEvent *) = {
 	[PropertyNotify] = propnotify,
 	[SelectionRequest] = selrequest,
 };
+
+/* history viewer related globals */
+
+#ifndef ST_HISTORY_SIZE
+#define ST_HISTORY_SIZE 1000 /* lines */
+#endif
+
+static int histfd = -1;
+static size_t histmax = ST_HISTORY_SIZE;
+static size_t histcur;
+static char *histpath;
+static char *pagercmd;
+static char *pager;
+static char *self;
 
 /* Globals */
 static DC dc;
@@ -1787,10 +1802,53 @@ selscroll(int orig, int n)
 	}
 }
 
+#ifndef HISTBUF_SIZE
+#define HISTBUF_SIZE 1024
+#endif
+
+static char histbuf[HISTBUF_SIZE + 1];
+static char *histend = histbuf + HISTBUF_SIZE;
+static char *histptr = histbuf;
+
+void
+writehistory(int y)
+{
+	int x;
+	char wrap = 0;
+
+	for (x = 0; x < term.col; x++) {
+		Glyph *g = &term.line[y][x];
+		if (histptr >= histend) {
+			xwrite(histfd, histbuf, histptr - histbuf);
+			memset(histbuf, 0, HISTBUF_SIZE);
+			histptr = histbuf;
+		}
+		*histptr++ = g->u;
+		if (g->mode & ATTR_WRAP) {
+			wrap = 1;
+			x++;
+		}
+	}
+
+	if (!wrap)
+		*(histptr - 1) = '\n';
+
+	if (++histcur >= histmax) { /* limit is reached, rotate history */
+		fprintf(stderr, "lines: %lu, histmax: %lu | %s\n",
+			histcur, histmax, __func__);
+		histcur = 0;
+		ftruncate(histfd, 0);
+		lseek(histfd, 0, SEEK_SET);
+	}
+}
+
 void
 tnewline(int first_col)
 {
 	int y = term.c.y;
+
+	if (histfd > 0)
+		writehistory(y);
 
 	if (y == term.bot) {
 		tscrollup(term.top, 1);
@@ -4387,6 +4445,68 @@ run(void)
 }
 
 void
+showhistory(const Arg *arg)
+{
+	int len;
+	int fdsave;
+
+	if (!histpath || !pager)
+		return;
+
+	len = strlen(self) + sizeof(" -w 0xffffffffffffffff -e ");
+	len += sizeof(" -g 65535x65535 ");
+	len += strlen(pager);
+	len += strlen(histpath);
+
+	if (!pagercmd) {
+		if (!(pagercmd = calloc(1, len)))
+			return;
+	}
+
+	snprintf(pagercmd, len, "%s -g %dx%d -w 0x%x -e %s %s", self,
+		 term.col, term.row, (unsigned int) xw.win, pager, histpath);
+	fdsave = histfd;
+	histfd = -1; /* prevent pager from writing into history file */
+	system(pagercmd);
+	histfd = fdsave;
+}
+
+#define ST_HISTORY_NAME "st.4294967295"
+
+void
+inithistory(void)
+{
+	const char *base;
+	const char *limit;
+
+	if (!(pager = getenv("ST_HISTORY_VIEW")))
+		return;
+
+	if ((limit = getenv("ST_HISTORY_SIZE")) && !(histmax = atoi(limit)))
+		histmax = ST_HISTORY_SIZE;
+
+	if (!(base = getenv("ST_HISTORY_BASE"))) {
+		goto out;
+	} else {
+		int len = sizeof(ST_HISTORY_NAME) + strlen(base);
+		if ((histpath = calloc(1, len))) {
+			snprintf(histpath, len, "%s/st.%u", base, getpid());
+		} else {
+			histfd = -1;
+			goto out;
+		}
+	}
+
+	if ((histfd = open(histpath, O_WRONLY | O_CREAT | O_TRUNC, 0666)) < 0)
+		fprintf(stderr, "open('%s') failed\n", histpath);
+
+out:
+	unsetenv("ST_HISTORY_VIEW");
+	unsetenv("ST_HISTORY_BASE");
+	unsetenv("ST_HISTORY_SIZE");
+}
+
+void
 usage(void)
 {
 	die("usage: %s [-aiv] [-c class] [-f font] [-g geometry]"
@@ -4404,6 +4524,7 @@ main(int argc, char *argv[])
 {
 	uint cols = 80, rows = 24;
 
+	self = argv[0];
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
 	xw.cursor = cursorshape;
@@ -4453,6 +4574,7 @@ main(int argc, char *argv[])
 	} ARGEND;
 
 run:
+	inithistory();
 	if (argc > 0) {
 		/* eat all remaining arguments */
 		opt_cmd = argv;
