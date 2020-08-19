@@ -5,8 +5,8 @@
  *
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
-static char *font = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
-static int borderpx = 2;
+static char font[] = "Mono:pixelsize=14:antialias=true:autohint=true";
+static int borderpx = 6;
 
 /*
  * What program is execed by st depends of these precedence rules:
@@ -97,22 +97,22 @@ unsigned int tabspaces = 8;
 static const char *colorname[] = {
 	/* 8 normal colors */
 	"black",
-	"red3",
-	"green3",
-	"yellow3",
-	"blue2",
-	"magenta3",
-	"cyan3",
+	"#a66d6d",
+	"#228b22",
+	"#cdcdb4",
+	"#31609c",
+	"#987595",
+	"#2f4f4f",
 	"gray90",
 
 	/* 8 bright colors */
 	"gray50",
-	"red",
-	"green",
-	"yellow",
-	"#5c5cff",
-	"magenta",
-	"cyan",
+	"#ff6347",
+	"#09a709",
+	"#817f21",
+	"#708090",
+	"#946566",
+	"#4d6c6c",
 	"white",
 
 	[255] = 0,
