@@ -123,3 +123,7 @@ extern char *termname;
 extern unsigned int tabspaces;
 extern unsigned int defaultfg;
 extern unsigned int defaultbg;
+
+int getcol(void);
+int getrow(void);
+Glyph *getglyph(int x, int y);

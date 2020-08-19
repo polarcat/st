@@ -19,6 +19,7 @@
 
 #include "st.h"
 #include "win.h"
+#include "pager.h"
 
 #if   defined(__linux)
  #include <pty.h>
@@ -215,7 +216,7 @@ static size_t utf8validate(Rune *, size_t);
 static char *base64dec(const char *);
 static char base64dec_getc(const char **);
 
-static ssize_t xwrite(int, const char *, size_t);
+ssize_t xwrite(int, const char *, size_t);
 
 /* Globals */
 static Term term;
@@ -1037,6 +1038,8 @@ treset(void)
 		tclearregion(0, 0, term.col-1, term.row-1);
 		tswapscreen();
 	}
+
+	pager_reset();
 }
 
 void
@@ -1122,6 +1125,8 @@ void
 tnewline(int first_col)
 {
 	int y = term.c.y;
+
+	pager_write(y);
 
 	if (y == term.bot) {
 		tscrollup(term.top, 1);
@@ -2594,4 +2599,19 @@ redraw(void)
 {
 	tfulldirt();
 	draw();
+}
+
+int getcol(void)
+{
+	return term.col;
+}
+
+int getrow(void)
+{
+	return term.row;
+}
+
+Glyph *getglyph(int x, int y)
+{
+	return &term.line[y][x];
 }

@@ -4,7 +4,7 @@
 
 include config.mk
 
-SRC = st.c x.c
+SRC = st.c x.c pager.c
 OBJ = $(SRC:.c=.o)
 
 all: options st
@@ -21,8 +21,8 @@ config.h:
 .c.o:
 	$(CC) $(STCFLAGS) -c $<
 
-st.o: config.h st.h win.h
-x.o: arg.h config.h st.h win.h
+st.o: config.h st.h win.h pager.h
+x.o: arg.h config.h st.h win.h pager.h
 
 $(OBJ): config.h config.mk
 

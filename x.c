@@ -19,6 +19,7 @@ char *argv0;
 #include "arg.h"
 #include "st.h"
 #include "win.h"
+#include "pager.h"
 
 /* types used in config.h */
 typedef struct {
@@ -488,6 +489,8 @@ bpress(XEvent *e)
 
 		selstart(evcol(e), evrow(e), snap);
 	}
+
+	pager_show(xw.win, e->xbutton.button);
 }
 
 void
@@ -1802,6 +1805,11 @@ kpress(XEvent *ev)
 		len = XLookupString(e, buf, sizeof buf, &ksym, NULL);
 	/* 1. shortcuts */
 	for (bp = shortcuts; bp < shortcuts + LEN(shortcuts); bp++) {
+		if (ksym == PAGER_KSYM && match(PAGER_MOD, e->state)) {
+			pager_show(xw.win, UINT32_MAX);
+			return;
+		}
+
 		if (ksym == bp->keysym && match(bp->mod, e->state)) {
 			bp->func(&(bp->arg));
 			return;
@@ -1980,6 +1988,7 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+	const char *prog = argv[0];
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
 	xsetcursor(cursorshape);
@@ -2043,6 +2052,7 @@ run:
 	xinit(cols, rows);
 	xsetenv();
 	selinit();
+	pager_init(prog);
 	run();
 
 	return 0;
